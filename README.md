@@ -7,6 +7,7 @@ Production-grade Multimodal RAG system built with **FastAPI**, **LlamaParse**, *
 - **LlamaParse ingestion** — parses PDFs into structured, page-aware elements (text, headings, tables, lists).
 - **Tables are never split** — each table is indexed whole and numbered per page (e.g. "Page 3, Table 1") for precise citations.
 - **Citation-aware answers** — the LLM is constrained to cite numbered context slots; markers are post-processed into readable `[Source: Page X, Table Y]` labels, and a structured `sources` list is returned alongside every answer.
+- **Built-in test UI** — a lightweight single-page UI at `GET /` for PDF upload, questions, and citation-highlighted answers (no build step).
 - **Zero hardcoding** — every model name, path, collection, and credential is resolved from `.env` via `pydantic-settings`.
 - **Pluggable vector store** — a `BaseVectorStore` interface with a ChromaDB implementation; Qdrant can be added behind the same contract.
 - **Resilience** — exponential backoff retries on external API rate limits and transient failures.
@@ -74,6 +75,7 @@ LLAMA_CLOUD_API_KEY=llx-...   # LlamaParse (free tier: 1000 pages/day)
 ```
 
 Interactive docs: http://localhost:8000/docs
+Test UI: http://localhost:8000 (upload a PDF, ask a question, see cited answers)
 
 ### 3. Ingest a PDF
 
