@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api/v1", tags=["query"])
 @router.post("/query", response_model=QueryResponse)
 async def answer_query(
     payload: QueryRequest,
-    services: Services = Depends(get_services),
+    services: Services = Depends(get_services),  # noqa: B008
 ) -> QueryResponse:
     """Retrieve relevant chunks, generate a cited answer, and return the evidence."""
     top_k = payload.top_k or services.settings.top_k

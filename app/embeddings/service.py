@@ -28,7 +28,7 @@ class EmbeddingService:
     def _create(self, texts: list[str]) -> list[list[float]]:
         try:
             response = self._client.embeddings.create(model=self._model, input=texts)
-        except Exception as exc:  # noqa: BLE001 - surface any provider failure
+        except Exception as exc:
             raise EmbeddingError(f"Embedding request failed: {exc}") from exc
         return [item.embedding for item in response.data]
 

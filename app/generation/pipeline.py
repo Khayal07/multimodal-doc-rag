@@ -5,7 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from app.generation.llm import LLMService
-from app.generation.prompt import SYSTEM_PROMPT, build_context, extract_citations, resolve_citations
+from app.generation.prompt import (
+    SYSTEM_PROMPT,
+    build_context,
+    extract_citations,
+    resolve_citations,
+)
 from app.retrieval.retriever import Retriever
 from app.vectorstore.base import RetrievedChunk
 

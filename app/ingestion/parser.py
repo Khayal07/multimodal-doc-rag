@@ -11,14 +11,15 @@ from __future__ import annotations
 import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
+
+warnings.filterwarnings("ignore", message=".*deprecated.*")
+warnings.filterwarnings("ignore", message=".*llama-cloud.*")
 
 from llama_parse import LlamaParse
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-warnings.filterwarnings("ignore", message=".*llama-parse.*deprecated.*")
-
-FileInput = Union[str, Path, bytes]
+FileInput = str | Path | bytes
 
 # Element types produced by LlamaParse JSON mode.
 ELEMENT_TEXT = "text"
@@ -110,7 +111,7 @@ class DocumentParser:
 
         try:
             results = self._parser.get_json_result(file)
-        except Exception as exc:  # noqa: BLE001 - surface any LlamaCloud failure
+        except Exception as exc:
             raise LlamaParseError(f"LlamaParse failed for '{name}': {exc}") from exc
 
         pages = self._extract_pages(results, name)

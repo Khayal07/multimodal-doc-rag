@@ -11,7 +11,11 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass, field
 
-from app.ingestion.parser import ELEMENT_HEADING, ELEMENT_TABLE, ParsedDocument, ParsedElement
+from app.ingestion.parser import (
+    ELEMENT_HEADING,
+    ELEMENT_TABLE,
+    ParsedDocument,
+)
 
 _CHUNK_ID_PREFIX_MAX = 16
 
@@ -44,7 +48,6 @@ def _split_on_boundaries(text: str, size: int, overlap: int) -> list[str]:
     if len(text) <= size:
         return [text.strip()] if text.strip() else []
 
-    step = max(size - overlap, 1)
     pieces: list[str] = []
     cursor = 0
     while cursor < len(text):

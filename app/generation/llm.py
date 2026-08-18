@@ -34,7 +34,7 @@ class LLMService:
                 ],
                 temperature=self._temperature,
             )
-        except Exception as exc:  # noqa: BLE001 - surface any provider failure
+        except Exception as exc:
             raise LLMError(f"Chat completion failed: {exc}") from exc
         content = response.choices[0].message.content
         if content is None:

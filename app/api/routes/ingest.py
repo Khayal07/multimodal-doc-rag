@@ -18,8 +18,8 @@ MAX_FILE_SIZE = 25 * 1024 * 1024  # 25 MiB
 
 @router.post("/ingest/pdf", response_model=IngestResponse, status_code=status.HTTP_200_OK)
 async def ingest_pdf(
-    file: UploadFile = File(..., description="PDF file to parse and index."),
-    services: Services = Depends(get_services),
+    file: UploadFile = File(..., description="PDF file to parse and index."),  # noqa: B008
+    services: Services = Depends(get_services),  # noqa: B008
 ) -> IngestResponse:
     """Parse a PDF with LlamaParse and index every chunk into the vector store."""
     if file.content_type and not file.content_type.startswith("application/pdf"):

@@ -52,7 +52,7 @@ class IngestionService:
         """
         try:
             parsed = self._parser.parse(file, document_name=document_name)
-        except Exception as exc:  # noqa: BLE001 - wrap and re-raise as domain error
+        except Exception as exc:
             raise IngestionError(str(exc)) from exc
 
         chunks = self._chunker.chunk(parsed)
