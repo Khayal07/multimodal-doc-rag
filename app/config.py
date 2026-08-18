@@ -36,18 +36,28 @@ class Settings(BaseSettings):
 
     # Vector store configuration
     vector_db_type: VectorDbType = Field(default="chroma", description="Backend vector database.")
-    chroma_persist_dir: str = Field(default="data/chroma", description="ChromaDB persistence directory.")
-    collection_name: str = Field(default="multimodal_docs", description="Collection/namespace name.")
-    qdrant_url: str | None = Field(default=None, description="Qdrant Cloud URL (if VECTOR_DB_TYPE=qdrant).")
-    qdrant_api_key: SecretStr | None = Field(default=None, description="Qdrant Cloud API key (if Qdrant).")
+    chroma_persist_dir: str = Field(
+        default="data/chroma", description="ChromaDB persistence directory."
+    )
+    collection_name: str = Field(
+        default="multimodal_docs", description="Collection/namespace name."
+    )
+    qdrant_url: str | None = Field(
+        default=None, description="Qdrant Cloud URL (if VECTOR_DB_TYPE=qdrant)."
+    )
+    qdrant_api_key: SecretStr | None = Field(
+        default=None, description="Qdrant Cloud API key (if Qdrant)."
+    )
 
     # Chunking
     chunk_size: int = Field(default=1500, ge=100, description="Target chunk length in characters.")
     chunk_overlap: int = Field(default=150, ge=0, description="Overlap between text chunks.")
 
     # Retrieval / generation
-    top_k: int = Field(default=5, ge=1, le=50, description="Default number of chunks retrieved.")
-    llm_temperature: float = Field(default=0.0, ge=0.0, le=2.0, description="LLM sampling temperature.")
+    top_k: int = Field(default=5, ge=1, le=50, description="Default chunks retrieved per query.")
+    llm_temperature: float = Field(
+        default=0.0, ge=0.0, le=2.0, description="LLM sampling temperature."
+    )
     max_retries: int = Field(default=3, ge=1, description="Retry count for external API calls.")
 
     @property

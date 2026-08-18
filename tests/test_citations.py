@@ -6,8 +6,14 @@ from app.vectorstore.base import RetrievedChunk
 
 def _chunks() -> list[RetrievedChunk]:
     return [
-        RetrievedChunk(id="a", document="r.pdf", page=3, element_type="table", text="data", chunk_index=0, table_id=1),
-        RetrievedChunk(id="b", document="r.pdf", page=5, element_type="text", text="more", chunk_index=1),
+        RetrievedChunk(
+            id="a", document="r.pdf", page=3, element_type="table",
+            text="data", chunk_index=0, table_id=1,
+        ),
+        RetrievedChunk(
+            id="b", document="r.pdf", page=5, element_type="text",
+            text="more", chunk_index=1,
+        ),
     ]
 
 

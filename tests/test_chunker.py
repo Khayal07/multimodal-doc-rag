@@ -58,7 +58,12 @@ def test_headings_are_kept_whole() -> None:
 def test_empty_text_is_skipped() -> None:
     chunker = Chunker()
     chunks = chunker.chunk(
-        _document([ParsedElement(page=1, element_type="text", text="   "), ParsedElement(page=1, element_type="table", text="|a|")])
+        _document(
+            [
+                ParsedElement(page=1, element_type="text", text="   "),
+                ParsedElement(page=1, element_type="table", text="|a|"),
+            ]
+        )
     )
     assert len(chunks) == 1
     assert chunks[0].element_type == "table"

@@ -9,8 +9,12 @@ class QueryRequest(BaseModel):
     """A user question plus optional retrieval tuning."""
 
     query: str = Field(min_length=1, max_length=2000)
-    top_k: int | None = Field(default=None, ge=1, le=50, description="Chunks to retrieve (overrides default).")
-    documents: list[str] | None = Field(default=None, description="Restrict search to these documents.")
+    top_k: int | None = Field(
+        default=None, ge=1, le=50, description="Chunks to retrieve (overrides default)."
+    )
+    documents: list[str] | None = Field(
+        default=None, description="Restrict search to these documents."
+    )
 
 
 class SourceRef(BaseModel):

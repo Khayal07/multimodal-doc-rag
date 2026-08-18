@@ -7,14 +7,17 @@ import re
 from app.ingestion.chunker import citation_label
 from app.vectorstore.base import RetrievedChunk
 
-SYSTEM_PROMPT = """You are an expert document assistant. Answer the user's question based ONLY on the provided context.
+SYSTEM_PROMPT = """You are an expert document assistant. Answer the user's question based
+ONLY on the provided context.
 
 Rules:
 - Base every statement exclusively on the context. Do not use outside knowledge.
 - After every claim, cite the supporting source using its bracketed number, e.g. [1], [2].
 - Multiple claims from different sources: append all applicable numbers, e.g. [1][3].
-- If the context is insufficient to answer, say "I could not find enough information in the provided documents." and nothing else.
-- Use markdown (headings, bullet lists, tables) when it improves readability. Preserve table data accurately.
+- If the context is insufficient to answer, say "I could not find enough information in the
+  provided documents." and nothing else.
+- Use markdown (headings, bullet lists, tables) when it improves readability. Preserve table
+  data accurately.
 
 Context:
 {context}
@@ -29,7 +32,8 @@ def build_context(chunks: list[RetrievedChunk]) -> str:
     """
     blocks: list[str] = []
     for index, chunk in enumerate(chunks, start=1):
-        blocks.append(f"[{index}] [{citation_label(chunk)}] (document: {chunk.document})\n{chunk.text}")
+        label = citation_label(chunk)
+        blocks.append(f"[{index}] [{label}] (document: {chunk.document})\n{chunk.text}")
     return "\n\n".join(blocks)
 
 

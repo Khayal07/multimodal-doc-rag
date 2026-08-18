@@ -10,8 +10,14 @@ def _store(tmp_path) -> ChromaStore:
 
 def _chunks() -> list[Chunk]:
     return [
-        Chunk(id="a-p0", document="doc.pdf", page=1, element_type="text", text="alpha beta gamma", chunk_index=0),
-        Chunk(id="b-p1", document="doc.pdf", page=3, element_type="table", text="|x|y|", chunk_index=1, table_id=2),
+        Chunk(
+            id="a-p0", document="doc.pdf", page=1, element_type="text",
+            text="alpha beta gamma", chunk_index=0,
+        ),
+        Chunk(
+            id="b-p1", document="doc.pdf", page=3, element_type="table",
+            text="|x|y|", chunk_index=1, table_id=2,
+        ),
     ]
 
 
@@ -39,13 +45,19 @@ def test_query_returns_table_metadata(tmp_path) -> None:
     assert results[0].table_id == 2
 
 
+def _other_chunk() -> list[Chunk]:
+    return [
+        Chunk(
+            id="c-p0", document="other.pdf", page=1, element_type="text",
+            text="unrelated", chunk_index=0,
+        )
+    ]
+
+
 def test_query_filtered_by_document(tmp_path) -> None:
     store = _store(tmp_path)
     store.add(_chunks(), [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
-    store.add(
-        [Chunk(id="c-p0", document="other.pdf", page=1, element_type="text", text="unrelated", chunk_index=0)],
-        [[1.0, 0.0, 0.0]],
-    )
+    store.add(_other_chunk(), [[1.0, 0.0, 0.0]])
 
     results = store.query([1.0, 0.0, 0.0], top_k=5, document="other.pdf")
     assert len(results) == 1
@@ -55,10 +67,7 @@ def test_query_filtered_by_document(tmp_path) -> None:
 def test_delete_document_removes_only_its_chunks(tmp_path) -> None:
     store = _store(tmp_path)
     store.add(_chunks(), [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
-    store.add(
-        [Chunk(id="c-p0", document="other.pdf", page=1, element_type="text", text="unrelated", chunk_index=0)],
-        [[0.5, 0.5, 0.0]],
-    )
+    store.add(_other_chunk(), [[0.5, 0.5, 0.0]])
 
     store.delete_document("doc.pdf")
     assert store.count() == 1
@@ -68,7 +77,10 @@ def test_delete_document_removes_only_its_chunks(tmp_path) -> None:
 def test_upsert_replaces_existing_chunks(tmp_path) -> None:
     store = _store(tmp_path)
     store.add(_chunks(), [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
-    updated = Chunk(id="a-p0", document="doc.pdf", page=1, element_type="text", text="new version", chunk_index=0)
+    updated = Chunk(
+        id="a-p0", document="doc.pdf", page=1, element_type="text",
+        text="new version", chunk_index=0,
+    )
     store.add([updated], [[1.0, 0.0, 0.0]])
 
     results = store.query([1.0, 0.0, 0.0], top_k=5)

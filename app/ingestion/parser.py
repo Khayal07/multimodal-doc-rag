@@ -16,8 +16,8 @@ from typing import Any
 warnings.filterwarnings("ignore", message=".*deprecated.*")
 warnings.filterwarnings("ignore", message=".*llama-cloud.*")
 
-from llama_parse import LlamaParse
-from tenacity import retry, stop_after_attempt, wait_exponential
+from llama_parse import LlamaParse  # noqa: E402
+from tenacity import retry, stop_after_attempt, wait_exponential  # noqa: E402
 
 FileInput = str | Path | bytes
 
