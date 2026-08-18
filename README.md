@@ -1,0 +1,1 @@
+Production-grade Multimodal RAG system built with FastAPI, LlamaParse, OpenAI, and ChromaDB. Ingests complex PDFs (text, tables, visuals) with exact page and table citatio
