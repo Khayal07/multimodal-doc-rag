@@ -1,12 +1,14 @@
 """Unit tests for the ingestion orchestrator (mocked parser/embeddings/store)."""
 
+import pytest
+
 from app.ingestion.chunker import Chunk
-from app.ingestion.loader import IngestionService
+from app.ingestion.loader import IngestionError, IngestionService
 from app.ingestion.parser import ParsedDocument, ParsedElement
 
 
 class _FakeParser:
-    def parse(self, file, document_name=None):
+    async def parse(self, file, document_name=None):
         return ParsedDocument(
             document=document_name or "doc.pdf",
             pages=2,
@@ -31,45 +33,9 @@ class _FakeStore:
         self.added.extend(chunks)
 
 
-def test_ingest_indexes_chunks_and_reports_counts() -> None:
-    store = _FakeStore()
-    service = IngestionService(
-        parser=_FakeParser(),
-        chunker=_ChunkerStub(),
-        embeddings=_FakeEmbeddings(),
-        vector_store=store,
-    )
-
-    report = service.ingest(b"%PDF", document_name="upload.pdf")
-
-    assert report.document == "upload.pdf"
-    assert report.pages == 2
-    assert report.chunks_indexed == 1
-    assert report.element_counts == {"text": 1}
-    assert store.deleted == ["upload.pdf"]
-    assert len(store.added) == 1
-
-
-def test_ingest_raises_when_no_content() -> None:
-    class _EmptyParser:
-        def parse(self, file, document_name=None):
-            return ParsedDocument(document="empty.pdf", pages=0, elements=[])
-
-    service = IngestionService(
-        parser=_EmptyParser(),
-        chunker=_ChunkerStub(),
-        embeddings=_FakeEmbeddings(),
-        vector_store=_FakeStore(),
-    )
-
-    from app.ingestion.loader import IngestionError
-
-    try:
-        service.ingest(b"x", document_name="empty.pdf")
-    except IngestionError as exc:
-        assert "No indexable content" in str(exc)
-    else:
-        raise AssertionError("IngestionError was not raised")
+class _EmptyParser:
+    async def parse(self, file, document_name=None):
+        return ParsedDocument(document="empty.pdf", pages=0, elements=[])
 
 
 class _ChunkerStub:
@@ -86,3 +52,43 @@ class _ChunkerStub:
                 chunk_index=0,
             )
         ]
+
+
+def _service(store, parser=None) -> IngestionService:
+    return IngestionService(
+        parser=parser or _FakeParser(),
+        chunker=_ChunkerStub(),
+        embeddings=_FakeEmbeddings(),
+        vector_store=store,
+    )
+
+
+@pytest.mark.asyncio
+async def test_ingest_indexes_chunks_and_reports_counts() -> None:
+    store = _FakeStore()
+    report = await _service(store).ingest(b"%PDF", document_name="upload.pdf")
+
+    assert report.document == "upload.pdf"
+    assert report.pages == 2
+    assert report.chunks_indexed == 1
+    assert report.element_counts == {"text": 1}
+    assert store.deleted == ["upload.pdf"]
+    assert len(store.added) == 1
+
+
+@pytest.mark.asyncio
+async def test_ingest_raises_when_no_content() -> None:
+    with pytest.raises(IngestionError, match="No indexable content"):
+        await _service(_FakeStore(), parser=_EmptyParser()).ingest(b"x", document_name="empty.pdf")
+
+
+@pytest.mark.asyncio
+async def test_parser_errors_propagate_to_caller() -> None:
+    class _BoomParser:
+        async def parse(self, file, document_name=None):
+            from app.ingestion.parser import LlamaParseError
+
+            raise LlamaParseError("LlamaParse returned 0 documents. Check API key.")
+
+    with pytest.raises(Exception, match="0 documents"):
+        await _service(_FakeStore(), parser=_BoomParser()).ingest(b"x", document_name="bad.pdf")

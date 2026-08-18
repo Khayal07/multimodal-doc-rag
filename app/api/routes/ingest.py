@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import asdict
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
-from starlette.concurrency import run_in_threadpool
 
 from app.api.deps import get_services
 from app.schemas.ingest import IngestResponse
@@ -40,5 +39,5 @@ async def ingest_pdf(
             detail="Uploaded file exceeds the 25 MiB limit.",
         )
 
-    report = await run_in_threadpool(services.ingestion.ingest, content, file.filename)
+    report = await services.ingestion.ingest(content, file.filename)
     return IngestResponse(**asdict(report))

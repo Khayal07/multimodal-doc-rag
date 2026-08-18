@@ -8,6 +8,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import asyncio
 import sys
 from pathlib import Path
 
@@ -27,7 +28,7 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
     if not path.is_file():
         print(f"File not found: {path}", file=sys.stderr)
         return 1
-    report = _services().ingestion.ingest(path)
+    report = asyncio.run(_services().ingestion.ingest(path))
     print(
         f"Indexed '{report.document}': {report.pages} pages, "
         f"{report.chunks_indexed} chunks, elements={report.element_counts}"

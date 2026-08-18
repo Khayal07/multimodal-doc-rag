@@ -1,17 +1,27 @@
 """LlamaParse integration.
 
 Wraps the LlamaCloud parsing API (free tier) to convert complex PDFs into a
-structured, element-aware representation. The JSON result mode returns every
-element (heading, paragraph, table, list, image, ...) tagged with its page
-number, which is what makes page-level citations possible.
+page-aware, element-structured representation. Markdown result mode is used for
+the most reliable extraction; pages are split server-side and elements (tables,
+headings, paragraphs) are then re-detected from each page's markdown so that
+page- and table-level citations remain possible.
+
+Parsing is fully async so it never blocks or conflicts with FastAPI's event
+loop (``nest_asyncio`` is applied defensively at import time).
 """
 
 from __future__ import annotations
 
+import logging
+import re
 import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+import nest_asyncio
+
+nest_asyncio.apply()
 
 warnings.filterwarnings("ignore", message=".*deprecated.*")
 warnings.filterwarnings("ignore", message=".*llama-cloud.*")
@@ -19,15 +29,20 @@ warnings.filterwarnings("ignore", message=".*llama-cloud.*")
 from llama_parse import LlamaParse  # noqa: E402
 from tenacity import retry, stop_after_attempt, wait_exponential  # noqa: E402
 
+logger = logging.getLogger(__name__)
+
 FileInput = str | Path | bytes
 
-# Element types produced by LlamaParse JSON mode.
+# Element types produced by the markdown block classifier.
 ELEMENT_TEXT = "text"
 ELEMENT_HEADING = "heading"
 ELEMENT_TABLE = "table"
 ELEMENT_LIST = "list"
 ELEMENT_IMAGE = "image"
 ELEMENT_CODE = "code"
+
+_TABLE_SEPARATOR = re.compile(r"^\s*\|?[\s:\-|]+\|?\s*$")
+_HEADING_PATTERN = re.compile(r"^#{1,6}\s+\S")
 
 
 @dataclass(slots=True)
@@ -60,37 +75,46 @@ class LlamaParseError(RuntimeError):
     """Raised when LlamaParse cannot produce a parseable result."""
 
 
-def _element_text(item: dict[str, Any]) -> str:
-    """Best-effort extraction of the textual content of a parsed item."""
-    if isinstance(item.get("md"), str) and item["md"].strip():
-        return item["md"].strip()
-    if isinstance(item.get("value"), str) and item["value"].strip():
-        return item["value"].strip()
-    if isinstance(item.get("text"), str) and item["text"].strip():
-        return item["text"].strip()
-    return ""
+def _classify_block(block: str) -> tuple[str, str]:
+    """Classify a markdown block into ``(element_type, clean_text)``."""
+    non_empty = [line for line in block.split("\n") if line.strip()]
+    is_table = (
+        len(non_empty) >= 2
+        and all("|" in line for line in non_empty)
+        and any(_TABLE_SEPARATOR.match(line) and "-" in line for line in non_empty)
+    )
+    if is_table:
+        return ELEMENT_TABLE, block.strip()
+    stripped = block.strip()
+    if not stripped:
+        return "", ""
+    if _HEADING_PATTERN.match(stripped):
+        return ELEMENT_HEADING, stripped
+    if stripped.startswith("- ") or stripped.startswith("* "):
+        return ELEMENT_LIST, stripped
+    return ELEMENT_TEXT, stripped
 
 
-def _normalise_element_type(item: dict[str, Any]) -> str:
-    """Map a raw LlamaParse item type to a stable element type."""
-    raw_type = str(item.get("type", ELEMENT_TEXT)).lower()
-    if raw_type in {"paragraph", "text"}:
-        return ELEMENT_TEXT
-    if raw_type in {"h1", "h2", "h3", "h4", "h5", "h6", "heading"}:
-        return ELEMENT_HEADING
-    return raw_type
+def _page_elements(markdown: str, page_number: int) -> list[ParsedElement]:
+    """Split one page's markdown into classified :class:`ParsedElement`\\ s."""
+    elements: list[ParsedElement] = []
+    for block in re.split(r"\n\s*\n", markdown):
+        element_type, text = _classify_block(block)
+        if element_type and text:
+            elements.append(ParsedElement(page=page_number, element_type=element_type, text=text))
+    return elements
 
 
 class DocumentParser:
-    """Thin, retry-safe wrapper around :class:`LlamaParse`."""
+    """Async, retry-safe wrapper around :class:`LlamaParse` (markdown mode)."""
 
     def __init__(self, api_key: str, *, premium_mode: bool = False, num_workers: int = 4) -> None:
         self._parser = LlamaParse(
             api_key=api_key,
-            result_type="json",
+            result_type="markdown",
             premium_mode=premium_mode,
             num_workers=num_workers,
-            verbose=False,
+            verbose=True,
         )
 
     @retry(
@@ -98,8 +122,8 @@ class DocumentParser:
         wait=wait_exponential(multiplier=1, min=2, max=30),
         reraise=True,
     )
-    def parse(self, file: FileInput, document_name: str | None = None) -> ParsedDocument:
-        """Parse a PDF and return a :class:`ParsedDocument`.
+    async def parse(self, file: FileInput, document_name: str | None = None) -> ParsedDocument:
+        """Parse a PDF (via ``await parser.aload_data``) into a :class:`ParsedDocument`.
 
         ``document_name`` is used as the source label and defaults to the file
         name when ``file`` is a path.
@@ -109,45 +133,41 @@ class DocumentParser:
         else:
             name = document_name or "uploaded.pdf"
 
+        logger.info("LlamaParse: parsing '%s' (markdown mode)...", name)
         try:
-            results = self._parser.get_json_result(file)
+            documents = await self._parser.aload_data(file, extra_info={"file_name": name})
         except Exception as exc:
+            logger.error("LlamaParse: parsing '%s' failed: %s", name, exc)
             raise LlamaParseError(f"LlamaParse failed for '{name}': {exc}") from exc
 
-        pages = self._extract_pages(results, name)
-        return ParsedDocument(
-            document=name,
-            pages=len(pages),
-            elements=self._collect_elements(pages),
-        )
+        logger.info("LlamaParse: '%s' returned %d page document(s).", name, len(documents))
+        if not documents:
+            raise LlamaParseError(
+                "LlamaParse returned 0 documents. Check API key and LlamaCloud dashboard limits."
+            )
 
-    def _extract_pages(self, results: list[dict[str, Any]], name: str) -> list[dict[str, Any]]:
-        """Pull the ordered page list out of the raw JSON results."""
-        for result in results:
-            if isinstance(result, dict) and isinstance(result.get("pages"), list):
-                return result["pages"]
-        raise LlamaParseError(f"LlamaParse returned no structured page data for '{name}'.")
-
-    def _collect_elements(self, pages: list[dict[str, Any]]) -> list[ParsedElement]:
         elements: list[ParsedElement] = []
-        for page in pages:
-            page_number = int(page.get("page", 0))
-            items = page.get("items") or []
-            for item in items:
-                if not isinstance(item, dict):
-                    continue
-                element_type = _normalise_element_type(item)
-                if element_type == ELEMENT_IMAGE:
-                    continue  # images have no searchable text of their own
-                text = _element_text(item)
-                if not text:
-                    continue
-                elements.append(
-                    ParsedElement(
-                        page=page_number,
-                        element_type=element_type,
-                        text=text,
-                        raw=item,
-                    )
-                )
-        return elements
+        for page_number, page in enumerate(documents, start=1):
+            markdown = getattr(page, "text", "") or ""
+            elements.extend(_page_elements(markdown, page_number))
+
+        if not elements:
+            raise LlamaParseError(
+                f"LlamaParse parsed '{name}' but no extractable content was found."
+            )
+
+        logger.info(
+            "LlamaParse: '%s' -> %d pages, %d elements (%s).",
+            name,
+            len(documents),
+            len(elements),
+            ", ".join(f"{k}={v}" for k, v in _count_by_type(elements).items()),
+        )
+        return ParsedDocument(document=name, pages=len(documents), elements=elements)
+
+
+def _count_by_type(elements: list[ParsedElement]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for element in elements:
+        counts[element.element_type] = counts.get(element.element_type, 0) + 1
+    return counts

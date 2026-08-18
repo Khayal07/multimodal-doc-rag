@@ -24,7 +24,7 @@ def register_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(LlamaParseError)
     async def _llama_parse_handler(_: Request, exc: LlamaParseError) -> JSONResponse:
-        return _error_response(502, str(exc))
+        return _error_response(500, str(exc))
 
     @app.exception_handler(IngestionError)
     async def _ingestion_handler(_: Request, exc: IngestionError) -> JSONResponse:
