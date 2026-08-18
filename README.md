@@ -17,7 +17,7 @@ Production-grade Multimodal RAG system built with **FastAPI**, **LlamaParse**, *
 POST /api/v1/ingest/pdf (PDF)                    POST /api/v1/query
         │                                                │
         ▼                                                ▼
-  LlamaParse (JSON result, page-aware elements)    EmbeddingService (query → vector)
+  LlamaParse (markdown, page-aware elements)     EmbeddingService (query → vector)
         │                                                │
         ▼                                                ▼
   Chunker (text split + tables kept whole)         Retriever → VectorStore.query
@@ -33,7 +33,7 @@ Key modules under `app/`:
 
 | Module | Responsibility |
 | --- | --- |
-| `ingestion/parser.py` | LlamaParse wrapper; produces `ParsedDocument` with element types + page numbers |
+| `ingestion/parser.py` | Async LlamaParse wrapper (markdown mode); produces `ParsedDocument` with page + element metadata |
 | `ingestion/chunker.py` | Converts elements into citation-aware `Chunk`s; tables kept whole with per-page `table_id` |
 | `ingestion/loader.py` | Orchestrates parse → chunk → embed → store; re-ingest replaces prior version |
 | `embeddings/service.py` | OpenAI embedding client with batched, retry-safe calls |
