@@ -1,6 +1,9 @@
 # Environment
 .env
 
+# Agent instructions (local-only, never commit)
+AGENTS.md
+
 # Python
 __pycache__/
 *.py[cod]
